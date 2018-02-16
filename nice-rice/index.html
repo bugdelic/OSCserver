@@ -1,0 +1,445 @@
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <meta property="og:title" content="米粒写経" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="米粒みたいな大きさのフォントパネルの青い丸で選択されたを大きく写経して、canvasの機能でモノクロ二値の白黒フォントを「　」と「■」に変換します。あと、テキストボックスに文字を入れると変換出来そうな感じがします。"
+    />
+    <meta property="og:url" content="http://nice-rice.obscure.tokyo/" />
+    <meta property="og:image" content="misaki_gothic.png" />
+    <meta property="og:site_name" content="米粒写経" />
+    <meta property="fb:admins" content="satorupan" />
+    <style>
+        body,
+        textarea {
+            font-family: Consolas, 'Courier New', Courier, Monaco, monospace;
+            font-size: 14px;
+            line-height: 1.2;
+        }
+
+        textarea {
+            margin: 0px;
+            height: 96px;
+            width: 104px;
+            padding: 12px;
+
+            font-size: 12px;
+            letter-spacing: -2.7px;
+            line-height: 9px;
+            font-family: osak;
+        }
+
+        #output {
+            width: 100%;
+            position: absolute;
+            bottom: 0;
+            z-index: 2;
+            letter-spacing: 1;
+            line-height: 1;
+        }
+
+        .output_outer {
+            float: left;
+            width: 10%;
+            height: 100%;
+        }
+
+        .output {
+            position: fixed;
+            bottom: 0;
+            z-index: 2;
+            letter-spacing: 1;
+            line-height: 1;
+        }
+
+        .ninja_onebutton {
+            float: right;
+            margin: 3px 0 0 0;
+        }
+    </style>
+    <script src="https://code.createjs.com/easeljs-0.8.1.min.js"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js"></script>
+    <script>
+        var stage, sliceContainer, sliceWidth, sliceExAll, counter, aaSwitch, degToRad = Math.PI / 180;
+        var p = 0;
+        var onDragFlag = false;
+        var asciiCharacter;
+        var getCharacter;
+
+        function init() {
+            // code here.
+
+            counter = document.getElementById("formCounter");
+            aaSwitch = document.getElementById("formCheckbox");
+            stage = new createjs.Stage("demoCanvas");
+            exStage = new createjs.Stage("exCanvas");
+            /*
+             */
+            var circle = new createjs.Shape();
+            circle.graphics.beginFill("DeepSkyBlue").beginFill('transparent').beginStroke('cyan').drawRect(0, 0, 8, 8);
+            circle.x = 30;
+            circle.y = 29;
+
+
+
+            var img = new Image();
+            img.onload = handleImageLoad;
+            img.src = "./misaki_gothic.png";
+
+            function handleImageLoad(evt) {
+                var img = evt.target,
+                    imgWidth = img.width,
+                    imgHeight = img.height,
+                    sliceCount = 6;
+                var oldPt;
+
+                sliceWidth = imgWidth / sliceCount;
+                sliceContainer = new createjs.Container();
+                sliceContainer.x = stage.canvas.width / 2;
+
+                var sliceAll = new createjs.Bitmap(img);
+                sliceExAll = new createjs.Bitmap(img);
+                sliceExAll.scaleX = sliceExAll.scaleY = sliceExAll.scale = 10;
+
+                for (var i = 0; i < sliceCount; i++) {
+                    var slice = new createjs.Bitmap(img);
+                    slice.sourceRect = new createjs.Rectangle(sliceWidth * i, 0, sliceWidth, imgHeight);
+                    slice.cache(0, 0, sliceWidth, imgHeight);
+                    slice.filters = [new createjs.ColorMatrixFilter(new createjs.ColorMatrix())];
+                    sliceContainer.addChild(slice);
+                }
+
+                exStage.addChild(sliceExAll);
+                stage.addChild(sliceContainer);
+                stage.addChild(sliceAll);
+                stage.addChild(circle);
+
+                // start the tick and point it at the window so we can do some work before updating the stage:
+                createjs.Ticker.timingMode = createjs.Ticker.RAF;
+                createjs.Ticker.addEventListener("tick", tick);
+                createjs.Ticker.setFPS(24);
+
+
+                createjs.Touch.enable(stage);
+                stage.addEventListener("stagemousedown", handleMouseDown);
+                stage.addEventListener("stagemouseup", handleMouseUp);
+
+                var canvas = document.getElementById("exCanvas"),
+                    context = canvas.getContext('2d');
+                context.imageSmoothingEnabled = context.mozImageSmoothingEnabled = context.oImageSmoothingEnabled =
+                    false;
+                stage.update();
+
+                function setCharacter() {
+
+                    var unit = document.getElementById("ascii").value;
+                    //console.log(unit.length);
+                    for (k = 0; k < unit.length; k++) {
+
+                        var str = "文字列をUTF-8に";
+                        var utf8str = unescape(encodeURIComponent(str));
+                        var utf16str = decodeURIComponent(escape(utf8str));
+                        ///if (str == utf16str) {alert(unit.charCodeAt(k));} //=> true
+                    }
+                    stage.update();
+                }
+                asciiCharacter = function asciiCharacter(i, flag) {
+
+                    xx = new Array();
+                    for (j = 0; j < 64; j = j + 1) {
+                        x = (j % 8) * 10;
+                        y = Math.floor(j / 8) * 10;
+                        var imagedata = context.getImageData(x, y, 1, 1);
+                        Array.prototype.slice.apply(imagedata.data);
+                        var tmp;
+                        if (imagedata.data[0] == "0") {
+                            xx.push('■');
+                            tmp = "1";
+                        } else {
+                            tmp = "0";
+                            if (flag) {
+                                xx.push('＿');
+                            } else {
+                                xx.push('　');
+                            }
+                        }
+                        document.getElementById("output" + Math.ceil(i / 1000)).innerHTML += tmp + ",";
+                    }
+
+                    document.getElementById("output" + Math.ceil(i / 1000)).innerHTML += "EOL \n";
+                    str = xx.join('.');
+                    return str;
+                }
+                getCharacter = function getCharacter(i) {
+
+                    exStage.update(event);
+                    circle.x = (i % 94) * 8;
+                    circle.y = Math.floor(i / 94) * 8;
+                    sliceExAll.x = (i % 94) * 80 * (-1);
+                    sliceExAll.y = Math.floor(i / 94) * 80 * (-1);
+
+                    document.control.formCounter.value = i + 1;
+
+                    var tmpCount = (circle.y / 8 + 32 + 1).toString(16) + "" + (circle.x / 8 + 32).toString(16);
+                    document.getElementById("output" + Math.ceil(i / 1000)).innerHTML += i + "\t" + tmpCount +
+                        "\t";
+
+
+                    var canvas = document.getElementById("exCanvas")
+                    var context = canvas.getContext('2d');
+
+                    document.control.formTextarea.value = asciiCharacter(i, false);
+
+                    stage.update(event);
+                    //document.control.formTextarea.value=xx;
+                }
+
+                function calcPoint2Char(mx, my) {
+                    tx = Math.floor(mx / 8);
+                    ty = Math.floor(my / 8);
+                    var value = tx + ty * 94;
+                    getCharacter(value);
+
+                }
+
+                function handleMouseDown(event) {
+
+                    document.control.formCheckbox.checked = false;
+                    stage.addEventListener("stagemousemove", handleMouseMove);
+
+
+
+                    onDragFlag = true;
+                    tx = Math.floor(stage.mouseX / 8);
+                    ty = Math.floor(stage.mouseY / 8);
+                    i = tx + ty * 94;
+
+                    circle.x = (i % 94) * 8;
+                    circle.y = Math.ceil(i / 94) * 8;
+                    sliceExAll.x = (i % 94) * 80 * (-1);
+                    sliceExAll.y = Math.ceil(i / 94) * 80 * (-1);
+
+                    document.control.formCounter.value = i;
+                    stage.update(event);
+                    exStage.update(event);
+
+                }
+
+                function handleMouseMove(event) {
+
+                    onDragFlag = true;
+                    tx = Math.floor(stage.mouseX / 8);
+                    ty = Math.floor(stage.mouseY / 8);
+                    i = tx + ty * 94;
+
+                    circle.x = (i % 94) * 8;
+                    circle.y = Math.ceil(i / 94) * 8;
+                    sliceExAll.x = (i % 94) * 80 * (-1);
+                    sliceExAll.y = Math.ceil(i / 94) * 80 * (-1);
+
+                    document.control.formCounter.value = i;
+                    stage.update(event);
+                    exStage.update(event);
+                }
+
+                function handleMouseUp(event) {
+                    onDragFlag = false;
+                    if (!event.primary) {
+                        return;
+                    }
+                    stage.removeEventListener("stagemousemove", handleMouseMove);
+
+                    tx = Math.floor(stage.mouseX / 8);
+                    ty = Math.floor(stage.mouseY / 8);
+                    var i = tx + ty * 94;
+
+
+                    document.control.formCounter.value = i;
+                    oldPt = new createjs.Point(stage.mouseX, stage.mouseY);
+                    calcPoint2Char(stage.mouseX, stage.mouseY);
+
+                    getCharacter(i);
+                    getChar();
+                }
+
+                function tick(event) {
+                    // draw the updates to stage:
+                    if (document.control.formCheckbox.checked) {
+                        p++;
+                        getCharacter(p);
+                    } else {
+                        setCharacter();
+                        if (onDragFlag) {
+
+                        } else {
+                            circle.x = ((p) % 94) * 8;
+                            circle.y = Math.floor((p) / 94) * 8;
+                        }
+                    }
+                }
+
+                function requestAjax() {
+                    console.log('HHHH');
+                }
+            }
+
+        }
+    </script>
+
+    <script>
+        function getChar() {
+            $(function () {
+                var hostUrl = '/cray/launch2';
+                var param1 = $("#formCounter").val();
+                $.ajax({
+                    url: hostUrl,
+                    type: 'POST',
+                    dataType: 'json',
+                    data: {
+                        Key: counter.value
+                    },
+                    timeout: 10000,
+                    success: function (data) {
+                        console.log(data);
+                        var form = document.getElementById("ascii").value;
+                        document.getElementById("ascii").value = form + data['value'];
+                        // alert("ok");
+                    },
+                    error: function (XMLHttpRequest, textStatus, errorThrown) {
+                        console.log(textStatus);
+                        console.log(errorThrown);
+                        //  alert("error");
+                    }
+                });
+            });
+        }
+
+        function sendData() {
+            $(function () {
+                var hostUrl = '/cray/launch';
+                var param1 = $("#ascii").val();
+
+                // 全角にしたい
+                param1.replace(/[A-Za-z0-9]/g, function (s) {
+                    return String.fromCharCode(s.charCodeAt(0) + 0xFEE0);
+                });
+                $.ajax({
+                    url: hostUrl,
+                    type: 'POST',
+                    dataType: 'json',
+                    async: false, // 非同期通信を行うか
+                    data: {
+                        Key: param1
+                    },
+                    timeout: 10000,
+                    success: function (data) {
+                        console.log(data);
+                        var output = "";
+                        for (var i in data) {
+                            getCharacter(data[i]['tid']);
+                            data[i]['str'] = asciiCharacter(data[i]['tid'], true);
+                            sleep(20);
+
+                        }
+
+                        console.log(data);
+                        for (var j = 0; j < 8; j++) {
+                            var line = "";
+                            for (var i in data) {
+                                var str = data[i]['str'];
+                                line = line + str.substring(j * 16, j * 16 + 16);
+                            }
+                            output = output + line + "\n";
+                        }
+
+                        $("#ascii").val('');
+                        $("#formTextWrap").val(output);
+                        // alert("ok");
+                    },
+                    error: function (XMLHttpRequest, textStatus, errorThrown) {
+                        console.log(textStatus);
+                        console.log(errorThrown);
+                        //  alert("error");
+                    }
+                });
+            });
+        }
+
+        function sleep(time) {
+            var d1 = new Date().getTime();
+            var d2 = new Date().getTime();
+            while (d2 < d1 + time) {
+                d2 = new Date().getTime();
+            }
+            return;
+        }
+    </script>
+</head>
+
+<body onload="init();" style="background: white;">
+    <div style="width:752px;margin:0 auto;  height: 100%;  position: relative;">
+        <canvas id="demoCanvas" width="752" height="752" style="position:absolute;top:175px;left:0px;"></canvas>
+        <canvas id="exCanvas" width="80" height="80" style="position:absolute;top:10px;left:10px;background:red;overflow: hidden;"></canvas>
+        <form name="control" onsubmit="sendData();return false;">
+            <div style="position:absolute;top:130px;left:100px;">
+                <input type="text" id="formCounter" style="width:50px;" />
+                <input type="text" id="ascii" />
+                <input type='submit' id="submiter" />
+                <input type="checkbox" id="formCheckbox" value='1' checked="checked" />
+            </div>
+            <div style="position: absolute;top:0;left:100px;">
+                <div style="width:500px;overflow-x: auto">
+                    <textarea id="formTextWrap" style="position:absolute;left:0;top:0;width:500px;">
+                        .■.　.■.　.■.　.　.■.　.■.　.■.　.　.　.■.■.■.■.■.■.■.　.　.■.■.■.■.■.　.　. 　.　.　.■.　.　.　.　.　.■.■.■.■.■.■.　.■.　.■.　.　.　.■.　.■.　.　.■.　.■.　.　.
+                        ■.■.■.■.■.■.■.　.■.■.　.■.　.■.　.　.　.　.■.■.■.■.　.　.　.■.　.　.■.　.　.　. 　.　.　.■.　.　.　.　.　.■.　.■.　.■.　.　.　.　.■.　.　.　.　.　.■.　.■.■.　.■.■.　.
+                        　.　.■.■.■.　.　.　.■.■.　.■.　.■.　.　.■.■.■.■.■.■.■.　.　.■.　.■.■.■.　.　. ■.■.　.■.　.■.■.　.■.■.　.■.■.　.　.　.　.　.　.　.■.　.　.　.■.■.　.　.■.　.　.　.
+                        　.　.　.■.　.　.　.　.　.■.■.■.■.■.■.　.　.　.　.■.■.　.　.　.　.■.■.■.■.■.■.　.
+                    </textarea>
+                </div>
+                <textarea id="formTextarea" style="position:absolute;right:-140px;top:0;"></textarea>
+
+                <p style="font-size: 10px;margin: 0;position: absolute; top: 100px;">米粒みたいな大きさのフォントパネルの青い丸で選択されたを大きく写経して、canvasの機能でモノクロ二値の白黒フォントを「　」と「■」に変換します。あと、テキストボックスに文字を入れると変換出来そうな感じがします。</p>
+            </div>
+        </form>
+    </div>
+    <textarea id="output" style="display:none;">
+    </textarea>
+    <ul style="list-style:none;padding: 0;margin: 0;">
+        <li class="output_outer">
+            <textarea id="output1" class="output "></textarea>
+        </li>
+        <li class="output_outer ">
+            <textarea id="output2" class="output "></textarea>
+        </li>
+        <li class="output_outer ">
+            <textarea id="output3" class="output "></textarea>
+        </li>
+        <li class="output_outer ">
+            <textarea id="output4" class="output "></textarea>
+        </li>
+        <li class="output_outer ">
+            <textarea id="output5" class="output "></textarea>
+        </li>
+        <li class="output_outer ">
+            <textarea id="output6" class="output "></textarea>
+        </li>
+        <li class="output_outer ">
+            <textarea id="output7" class="output "></textarea>
+        </li>
+        <li class="output_outer ">
+            <textarea id="output8" class="output "></textarea>
+        </li>
+        <li class="output_outer ">
+            <textarea id="output9" class="output "></textarea>
+        </li>
+        <li class="output_outer ">
+            <textarea id="output10" class="output "></textarea>
+        </li>
+        </li>
+
+    </ul>
+
+</body>
+
+</html>
